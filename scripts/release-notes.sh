@@ -28,7 +28,7 @@ else
     injection="The filter targets classes only, or is absent."
 fi
 if grep -qiE 'com\.apple\.springboard|>SpringBoard<' <(plutil -convert xml1 "$filter" -o - 2>/dev/null); then
-    injection="$injection SpringBoard is resprung on install."
+    injection="$injection Installing does not restart SpringBoard: respring when your preferred package manager offers it, or by hand, and the ring appears."
 fi
 
 kill_switch="jbroot(/var/mobile/Library/$PACKAGE_ID/disabled) on roothide, /var/jb/var/mobile/Library/$PACKAGE_ID/disabled on rootless"
@@ -40,7 +40,7 @@ rendered="$(sed \
     -e "s|@VERSION@|$version|g" \
     -e "s|@MIN_IOS@|$MIN_IOS|g" \
     -e "s|@INJECTION_SUMMARY@|$injection|g" \
-    -e "s|@STATUS_ROOTHIDE@|- roothide (iphoneos-arm64e): works on iOS 26.6.2 (a virtual iPhone; the package's payload was placed where it installs, the deb was not installed through dpkg)|g" \
+    -e "s|@STATUS_ROOTHIDE@|- roothide (iphoneos-arm64e): works on iOS 26.6.2 (a virtual iPhone; the ring was checked with the payload placed where it installs, and the package installs, reinstalls and removes through a package manager without restarting SpringBoard)|g" \
     -e "s|@STATUS_ROOTLESS@|- rootless (iphoneos-arm64): untested|g" \
     -e "s|@KILL_SWITCH_PATH@|$kill_switch|g" \
     "$template")"

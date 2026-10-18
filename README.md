@@ -22,7 +22,7 @@ Packages are also on [GitHub Releases](https://github.com/owngoal-dev/DuoStatusR
 | [roothide](https://github.com/roothide) bootstrap | `iphoneos-arm64e` `.deb` |
 | Rootless bootstrap (`/var/jb`) | `iphoneos-arm64` `.deb` |
 
-Requires an iPhone with the Dynamic Island on iOS 16 or later. Developed and tested on iOS 26.6.2. There are no settings: install it and it works. To turn it off without removing it, create `/var/mobile/Library/wiki.qaq.duostatusring/disabled` inside the bootstrap and respring.
+Requires an iPhone with the Dynamic Island on iOS 16 or later. Developed and tested on iOS 26.6.2. There are no settings: install it, respring, and it works. To turn it off without removing it, create `/var/mobile/Library/wiki.qaq.duostatusring/disabled` inside the bootstrap and respring.
 
 ## What it does
 

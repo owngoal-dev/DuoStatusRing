@@ -104,6 +104,11 @@ ElleKit), with the development dylib from `tests/device/`:
   **device-observed** (a direct re-apply recursed).
 - Status bar icons pop in from twice their size when the system re-adds them; the
   copies clamp the live scale to at most 1: **device-observed**.
+- 1.0.1 installs, reinstalls and removes through a package manager on the same
+  virtual iPhone: Depends resolved against `mobilesubstrate` (ElleKit provides
+  it), the payload lands in `usr/lib/TweakInject` through the `DynamicLibraries`
+  link, the postinst runs and restarts nothing, and SpringBoard keeps its pid
+  through every one of them: **device-observed**.
 - Injection on rootless: **untested**.
 - Kill-switch marker disables injection: **untested**.
 - Depends verified: `mobilesubstrate` (provided by ElleKit) on iOS 26.6.2:
@@ -124,7 +129,9 @@ None.
 preference-domain plist on the real rootfs (the tweak writes none). roothide's
 maintainer scripts see jbroot as `/` and the real rootfs as `/rootfs` (statically
 verified: roothide `Developer/roothide.md`); that the rendered paths remove the
-right files on a device is **untested**. Install and upgrade respring SpringBoard.
+right files on a device is **untested**. Install and upgrade leave SpringBoard
+running: the maintainer scripts restart nothing, and the respring is the package
+manager's to offer once the whole transaction is done.
 
 ## Testing
 

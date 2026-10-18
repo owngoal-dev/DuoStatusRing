@@ -198,13 +198,8 @@ sed \
 chmod 0644 "$stage/DEBIAN/control"
 grep -qE '@[A-Z_]+@' "$stage/DEBIAN/control" && { echo "error: control still holds placeholders" >&2; grep -nE '@[A-Z_]+@' "$stage/DEBIAN/control" >&2; exit 65; }
 
-# --- render maintainer scripts (strip launchd/respring blocks by fact) ---
+# --- render maintainer scripts (strip the launchd block by fact) ---
 has_daemon=0; ls "$installed_root"/Library/LaunchDaemons/*.plist >/dev/null 2>&1 && has_daemon=1
-filter="$installed_root/Library/MobileSubstrate/DynamicLibraries/$TWEAK_NAME.plist"
-targets_springboard=0
-if [[ -f "$filter" ]]; then
-    if plutil -convert xml1 "$filter" -o - 2>/dev/null | grep -iE 'com\.apple\.springboard|>SpringBoard<' >/dev/null; then targets_springboard=1; fi
-fi
 strip_block() { # file marker keep(0/1)
     local f="$1" marker="$2" keep="$3"
     if (( keep )); then
@@ -220,7 +215,6 @@ for name in postinst prerm postrm; do
     dst="$stage/DEBIAN/$name"
     sed -e "s|@PREFIX@|$prefix|g" -e "s|@ROOTFS@|$rootfs|g" -e "s|@HELPER_LABEL@|$helper_label|g" -e "s|@PACKAGE_ID@|$PACKAGE_ID|g" "$src" >"$dst"
     strip_block "$dst" launchd "$has_daemon"
-    strip_block "$dst" respring "$targets_springboard"
     chmod 0755 "$dst"
     sh -n "$dst" || { echo "error: $name failed sh -n after render" >&2; exit 65; }
     grep -qE '@[A-Z_]+@' "$dst" && { echo "error: $name has leftover placeholder" >&2; exit 65; }

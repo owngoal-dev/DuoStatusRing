@@ -50,7 +50,7 @@ Where an item is evidence-backed, name the verifiable artifact beside the box.
 
 ## postinst restart
 
-- [x] The maintainer scripts restart only what the filter targets (SpringBoard respring / executable kill / nothing), boot out the daemon from all three domains if one ships, and `purge` deletes only the recorded state paths. SpringBoard respring on configure only; no daemon; purge removes only the state dir.
+- [x] The maintainer scripts restart only what the filter targets (SpringBoard respring / executable kill / nothing), boot out the daemon from all three domains if one ships, and `purge` deletes only the recorded state paths. No restart: SpringBoard is left running for the package manager to respring after the transaction; no daemon; purge removes only the state dir.
       `packaging/DEBIAN/`; SKILL.md maintainer-scripts, uninstall-and-purge-state.
 
 ## Licenses

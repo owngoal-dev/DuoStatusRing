@@ -1,7 +1,9 @@
 #!/bin/sh
 # package-deb.sh substitutes @PREFIX@ (empty on roothide, /var/jb on rootless)
 # and, per staged tree, strips the launchd block when no LaunchDaemons plist
-# ships and the respring block when the filter does not target SpringBoard.
+# ships. SpringBoard is not restarted here: a script that kills it stops the
+# home screen in the middle of the package manager's transaction, and the
+# package manager offers the respring once the whole transaction is done.
 
 find_tool() {
     for candidate in "@PREFIX@/usr/bin/$1" "/usr/bin/$1" "/bin/$1"; do
@@ -29,11 +31,6 @@ if [ "${1:-}" = configure ]; then
         "$launchctl" bootstrap system "$launch_plist" || exit 1
     fi
 # <<< launchd
-# >>> respring
-    if killer="$(find_tool killall)"; then
-        "$killer" -9 SpringBoard 2>/dev/null || true
-    fi
-# <<< respring
     :
 fi
 
