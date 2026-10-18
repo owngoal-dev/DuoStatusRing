@@ -63,6 +63,12 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ needs.prepare.outputs.sha }}
+      # The scripts need bash 4 or later (mapfile, empty arrays under set -u); the
+      # runner's /bin/bash is 3.2.
+      - name: Install bash
+        run: |
+          brew install bash
+          bash --version | head -n1
       - name: Set version
         run: make set-version VERSION="${{ needs.prepare.outputs.version }}"
       - name: Static gates
@@ -92,7 +98,8 @@ jobs:
 
       - name: Install packaging tools
         run: |
-          brew install ldid dpkg zstd
+          brew install ldid dpkg zstd bash
+          bash --version | head -n1
           ldid -v 2>&1 | head -n1 || true
           dpkg-deb --version | head -n1
 
