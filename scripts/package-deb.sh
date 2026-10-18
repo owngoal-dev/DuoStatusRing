@@ -10,6 +10,8 @@
 # is built to a temp file, verified, then atomically moved into place.
 
 set -Eeuo pipefail
+# A failing command under set -e must never end the build silently.
+trap 'echo "package-deb: failed at line $LINENO: $BASH_COMMAND (exit $?)" >&2' ERR
 
 [[ $# -eq 4 ]] || { echo "usage: $0 <roothide|rootless> <product-dir> <dsym-dir|-> <output-deb>" >&2; exit 64; }
 flavor="$1"; product="$2"; dsym="$3"; output_deb="$4"
