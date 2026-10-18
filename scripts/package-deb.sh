@@ -129,9 +129,14 @@ sign_and_verify() {
         local head; head="$(ldid -arch "$a" -h "$m" 2>/dev/null || true)"
         grep -q 'flags=0x2(adhoc)' <<<"$head" || { echo "error: $m ($a) not adhoc-signed" >&2; exit 65; }
         grep -qi 'CDHash' <<<"$head" || { echo "error: $m ($a) has no CDHash" >&2; exit 65; }
+        # Read whole outputs first: ldid prints several CDHash lines, and cutting
+        # a pipe after the first (head -n1) can SIGPIPE it, which pipefail turns
+        # into a silent exit.
         local a_cd b_cd
-        a_cd="$(ldid -arch "$a" -h "$m" 2>/dev/null | grep -i CDHash | head -n1)"
-        b_cd="$(ldid -arch "$a" -h "$scratch" 2>/dev/null | grep -i CDHash | head -n1)"
+        a_cd="$(ldid -arch "$a" -h "$m" 2>/dev/null || true)"
+        a_cd="$(grep -i -m1 CDHash <<<"$a_cd" || true)"
+        b_cd="$(ldid -arch "$a" -h "$scratch" 2>/dev/null || true)"
+        b_cd="$(grep -i -m1 CDHash <<<"$b_cd" || true)"
         [[ "$a_cd" == "$b_cd" ]] || { echo "error: $m ($a) CDHash is stale (differs from a fresh sign)" >&2; exit 65; }
     done
     rm -rf "$scratch_dir"
