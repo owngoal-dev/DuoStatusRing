@@ -1,0 +1,27 @@
+#!/bin/sh
+# package-deb.sh substitutes @PREFIX@ and strips the launchd block when no
+# LaunchDaemons plist ships.
+
+find_tool() {
+    for candidate in "@PREFIX@/usr/bin/$1" "/usr/bin/$1" "/bin/$1"; do
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if [ "${1:-}" = remove ] || [ "${1:-}" = deconfigure ]; then
+# >>> launchd
+    label=@HELPER_LABEL@
+    if launchctl="$(find_tool launchctl)"; then
+        "$launchctl" bootout "system/$label" 2>/dev/null || true
+        "$launchctl" bootout "user/501/$label" 2>/dev/null || true
+        "$launchctl" bootout "gui/501/$label" 2>/dev/null || true
+    fi
+# <<< launchd
+    :
+fi
+
+exit 0

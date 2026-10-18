@@ -1,0 +1,52 @@
+{
+  "class": "DepictionTabView",
+  "minVersion": "0.4",
+  "headerImage": "https://owngoal-dev.github.io/DuoStatusRing/header.png",
+  "tabs": [
+    {
+      "class": "DepictionStackView",
+      "tabname": "Details",
+      "views": [
+        {
+          "class": "DepictionSubheaderView",
+          "title": "Fold the Status Bar into a Ring",
+          "useBoldText": true
+        },
+        {
+          "class": "DepictionHeaderView",
+          "title": "Description"
+        },
+        {
+          "class": "DepictionSeparatorView"
+        },
+        {
+          "class": "DepictionMarkdownView",
+          "markdown": "When the Dynamic Island shows two activities side by side, the signal, Wi-Fi and battery icons fold into a ring beside the bubble, and unfold when the island becomes one again. There are no settings.\n\n## Features\n\n- **The ring:** the battery squeezes into a dot and grows into an arc over the top; its fill is the charge, in the system battery's color (green while charging, yellow in Low Power Mode, red when low). The signal bars fall onto the ring as four dots, and Wi-Fi moves into the center.\n- **Live while folded:** signal changes fade the dots and the Wi-Fi bands, losing the connection draws a slash through the Wi-Fi glyph, and the charge slides along the arc.\n- **Smooth interruptions:** split and merge in quick succession and every part turns around with the speed it has.\n- **The island stays Apple's:** only the split and merge are paced to match the design, and the clock and icons follow the island with a slight bounce.\n- **Everywhere SpringBoard draws a status bar:** the home screen, the lock screen and apps. Reduce Motion turns the morph into a crossfade.\n\n## Compatibility\n\nRequires an iPhone with the Dynamic Island on iOS 16 or later, and a roothide or rootless bootstrap. Choose `iphoneos-arm64e` for roothide or `iphoneos-arm64` for rootless. Developed and tested on iOS 26.6.2. This tweak injects into `com.apple.springboard`.\n\n[View Source](https://github.com/owngoal-dev/DuoStatusRing)",
+          "useSpacing": true
+        },
+        {
+          "class": "DepictionHeaderView",
+          "title": "Information"
+        },
+        {
+          "class": "DepictionSeparatorView"
+        },
+        {
+          "class": "DepictionTableTextView",
+          "title": "Version",
+          "text": "1.0.0"
+        },
+        {
+          "class": "DepictionTableTextView",
+          "title": "iOS Versions",
+          "text": "16 or later"
+        },
+        {
+          "class": "DepictionTableTextView",
+          "title": "Developer",
+          "text": "OwnGoal Studio"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+#!/bin/sh
+# dpkg runs postrm even when prerm was skipped or failed. Everything here is
+# safe to repeat and safe when nothing is left. package-deb.sh substitutes
+# @PREFIX@ (the bootstrap root as this shell sees it: empty on roothide, /var/jb
+# on rootless) and @ROOTFS@ (the real iOS rootfs as this shell sees it: /rootfs
+# on roothide, empty on rootless), and strips the launchd block when no
+# LaunchDaemons plist ships.
+# Only `purge` deletes user state; upgrade/failed-upgrade/abort-* never delete.
+
+find_tool() {
+    for candidate in "@PREFIX@/usr/bin/$1" "/usr/bin/$1" "/bin/$1"; do
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if [ "${1:-}" = remove ] || [ "${1:-}" = purge ]; then
+# >>> launchd
+    label=@HELPER_LABEL@
+    if launchctl="$(find_tool launchctl)"; then
+        "$launchctl" bootout "system/$label" 2>/dev/null || true
+        "$launchctl" bootout "user/501/$label" 2>/dev/null || true
+        "$launchctl" bootout "gui/501/$label" 2>/dev/null || true
+    fi
+# <<< launchd
+    :
+fi
+
+if [ "${1:-}" = purge ]; then
+    # State and preference domain deleted only on purge. Every rm path is
+    # absolute, non-empty and never / or the prefix itself.
+    state="@PREFIX@/var/mobile/Library/@PACKAGE_ID@"
+    case "$state" in
+    "" | "/" | "@PREFIX@" | "@PREFIX@/") ;;
+    *) rm -rf "$state" 2>/dev/null || true ;;
+    esac
+    # cfprefsd owns the preference domain on the real rootfs on both layouts,
+    # never inside the bootstrap.
+    prefs="@ROOTFS@/var/mobile/Library/Preferences/@PACKAGE_ID@.plist"
+    case "$prefs" in
+    "" | "/" | "@ROOTFS@" | "@ROOTFS@/") ;;
+    *) rm -f "$prefs" 2>/dev/null || true ;;
+    esac
+fi
+
+exit 0

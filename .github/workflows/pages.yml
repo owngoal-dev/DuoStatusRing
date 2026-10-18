@@ -1,0 +1,70 @@
+# Deploy docs/ (the native depiction) through GitHub Actions. The Changelog tab
+# is filled from GitHub Releases by the pinned shared updater; do not hand-write
+# it. Runs after Release completes (GITHUB_TOKEN releases fire no release event),
+# and only on success (a failed Release must not redeploy).
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - .github/workflows/pages.yml
+  release:
+    types: [published, edited]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  refresh-release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Refresh Pages from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run pages.yml --ref main
+
+  deploy:
+    if: github.event_name != 'release' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+      - name: Check out the shared depiction updater
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: owngoal-dev/owngoal-packages
+          ref: ef579aeebc7fe0ca1ba1165a1749665237c3a258
+          path: .depiction-tools
+          sparse-checkout: scripts/update-depiction-changelogs.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Fetch GitHub release notes into the depiction
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .depiction-tools/scripts/update-depiction-changelogs.py --repository "$GITHUB_REPOSITORY" --depiction docs/depiction.json
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: docs
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

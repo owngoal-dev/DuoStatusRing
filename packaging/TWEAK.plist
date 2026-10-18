@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    MobileSubstrate filter. Ships beside the dylib as <TWEAK_NAME>.plist. Scope
+    it to the target that tweak.m's identity guard also matches; do NOT list a
+    blanket com.apple.UIKit / UIKitCore without a recorded reason, and never list
+    this tweak's own helper daemon. Substrate, ElleKit and libhooker may read
+    multiple keys differently — if you use more than Bundles, record the intended
+    semantics in AGENTS.md. package-deb.sh converts this to XML and sets mode
+    0644 before packing.
+-->
+<plist version="1.0">
+<dict>
+    <key>Filter</key>
+    <dict>
+        <key>Bundles</key>
+        <array>
+            <string>com.apple.springboard</string>
+        </array>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,10 @@
+DuoStatusRing
+Copyright (c) OwnGoal Studio
+
+This package is distributed under the MIT License.
+
+Third-party components:
+
+- roothide.h (RootHide/libroothide), MIT License. The roothide scheme of this
+  tweak links its own hand-written stub for libroothide and includes the
+  official MIT header at build time. Full license text: stubs/roothide/LICENSE.

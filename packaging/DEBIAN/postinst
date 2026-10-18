@@ -1,0 +1,40 @@
+#!/bin/sh
+# package-deb.sh substitutes @PREFIX@ (empty on roothide, /var/jb on rootless)
+# and, per staged tree, strips the launchd block when no LaunchDaemons plist
+# ships and the respring block when the filter does not target SpringBoard.
+
+find_tool() {
+    for candidate in "@PREFIX@/usr/bin/$1" "/usr/bin/$1" "/bin/$1"; do
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if [ "${1:-}" = configure ]; then
+# >>> launchd
+    # The label is assigned once, alone on its line. A rename that swallows the
+    # space before a redirect turns `system/<id> 2>/dev/null` into
+    # `system/<id>2>/dev/null`: valid sh, so `sh -n` passes, but the wrong label
+    # is handed to launchctl and errors are no longer silenced.
+    label=@HELPER_LABEL@
+    launch_plist="@PREFIX@/Library/LaunchDaemons/$label.plist"
+    if launchctl="$(find_tool launchctl)"; then
+        "$launchctl" bootout "system/$label" 2>/dev/null || true
+        "$launchctl" bootout "user/501/$label" 2>/dev/null || true
+        "$launchctl" bootout "gui/501/$label" 2>/dev/null || true
+        "$launchctl" enable "system/$label" 2>/dev/null || true
+        "$launchctl" bootstrap system "$launch_plist" || exit 1
+    fi
+# <<< launchd
+# >>> respring
+    if killer="$(find_tool killall)"; then
+        "$killer" -9 SpringBoard 2>/dev/null || true
+    fi
+# <<< respring
+    :
+fi
+
+exit 0

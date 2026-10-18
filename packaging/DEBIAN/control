@@ -1,0 +1,15 @@
+Package: @PACKAGE_ID@
+Name: DuoStatusRing
+Version: @VERSION@
+Architecture: @ARCHITECTURE@
+Description: Fold the status bar into a ring when the Dynamic Island splits.
+ When the Dynamic Island shows two activities side by side, the signal, Wi-Fi and battery icons fold into a ring beside the bubble, and unfold when the island becomes one again. No settings.
+Icon: https://owngoal-dev.github.io/DuoStatusRing/icon.png
+Depiction: https://owngoal-dev.github.io/DuoStatusRing/
+SileoDepiction: https://owngoal-dev.github.io/DuoStatusRing/depiction.json
+Maintainer: OwnGoal Studio <not-gonna-reply@owngoal.dev>
+Author: OwnGoal Studio <https://github.com/owngoal-dev/DuoStatusRing>
+Section: Tweaks
+Priority: optional
+Depends: firmware (>= @MIN_IOS@)@DEPENDS@
+Installed-Size: @INSTALLED_SIZE@

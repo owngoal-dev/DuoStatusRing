@@ -1,0 +1,217 @@
+# Tag vX.Y.Z → build both packages (no-Theos), review, and publish a GitHub
+# Release. Shape: prepare → (test ‖ compile) → release. prepare derives the
+# release identity once (version, build, commit sha); test and compile check out
+# exactly that sha and run make set-version with that version; release needs all
+# three and re-checks that the tag still names that sha. owngoal-packages scans
+# the newest non-draft, non-prerelease release whose tag carries no pre-release
+# marker.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*.[0-9]*.[0-9]*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      build: ${{ steps.identity.outputs.build }}
+      sha: ${{ steps.identity.outputs.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - id: identity
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            case "${GITHUB_REF_NAME}" in
+            *alpha* | *beta* | *rc* | *pre* | *dev* | *nightly* | *snapshot*)
+              echo "pre-release marker in tag ${GITHUB_REF_NAME}" >&2; exit 1 ;;
+            esac
+            version="${GITHUB_REF_NAME#v}"
+            # the commit the tag names, not whatever the event carried
+            sha="$(git rev-parse "refs/tags/${GITHUB_REF_NAME}^{commit}")"
+            [ "$sha" = "$GITHUB_SHA" ] || { echo "tag ${GITHUB_REF_NAME} names $sha, event carried $GITHUB_SHA" >&2; exit 1; }
+          else
+            # a dispatch from a branch builds the committed version, never publishes
+            version="$(tr -d '[:space:]' <configuration/version.txt)"
+            sha="$GITHUB_SHA"
+          fi
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?$' || { echo "bad version '$version'" >&2; exit 1; }
+          {
+            echo "version=$version"
+            echo "build=$(git show -s --format=%ct "$sha")"
+            echo "sha=$sha"
+          } >>"$GITHUB_OUTPUT"
+          echo "### Release identity: $version at \`$sha\`" >>"$GITHUB_STEP_SUMMARY"
+
+  test:
+    needs: prepare
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - name: Set version
+        run: make set-version VERSION="${{ needs.prepare.outputs.version }}"
+      - name: Static gates
+        run: make check
+
+  compile:
+    needs: prepare
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Build from the prepared commit
+        run: |
+          set -euo pipefail
+          got="$(git rev-parse HEAD)"
+          [ "$got" = "${{ needs.prepare.outputs.sha }}" ] || { echo "checked out $got, prepared ${{ needs.prepare.outputs.sha }}" >&2; exit 1; }
+
+      - name: Select newest stable Xcode
+        run: |
+          latest="$(find /Applications -maxdepth 1 -name 'Xcode*.app' | grep -viE 'beta|rc' | sort -V | tail -n1)"
+          sudo xcode-select -s "$latest/Contents/Developer"
+          xcodebuild -version
+          xcrun clang --version | head -n1
+
+      - name: Install packaging tools
+        run: |
+          brew install ldid dpkg zstd
+          ldid -v 2>&1 | head -n1 || true
+          dpkg-deb --version | head -n1
+
+      # Fetch the pinned custom SDK OUTSIDE the work tree and verify its digest;
+      # the shipped prefs bundle needs the private Preferences framework, absent
+      # from Xcode's SDK. The pin (repo, ref, path, digest) lives in build.env
+      # only; build-ios.sh re-verifies it. Never vendor an SDK into the repo.
+      - name: Fetch and verify the pinned SDK (Preferences)
+        run: |
+          set -euo pipefail
+          . configuration/build.env
+          echo "$SDK_SOURCE_REF" | grep -Eq '^[0-9a-f]{40}$' || { echo "SDK_SOURCE_REF is not a 40-hex sha" >&2; exit 1; }
+          [ "$SDK_DIGEST_METHOD" = git-tree-id ] || { echo "CI verifies git-tree-id pins only" >&2; exit 1; }
+          work="$RUNNER_TEMP/sdks"
+          git init -q "$work"
+          git -C "$work" remote add origin "$SDK_SOURCE_REPO"
+          git -C "$work" config core.sparseCheckout true
+          echo "$SDK_SOURCE_PATH/" >"$work/.git/info/sparse-checkout"
+          git -C "$work" fetch -q --depth 1 origin "$SDK_SOURCE_REF"
+          git -C "$work" checkout -q FETCH_HEAD
+          got_tree="$(git -C "$work" rev-parse "FETCH_HEAD:$SDK_SOURCE_PATH")"
+          [ "$got_tree" = "$SDK_DIGEST_VALUE" ] || { echo "SDK tree id $got_tree != $SDK_DIGEST_VALUE" >&2; exit 1; }
+          echo "PREFS_SDK=$work/$SDK_SOURCE_PATH" >>"$GITHUB_ENV"
+          echo "SDK verified: git tree $got_tree"
+
+      - name: Set version
+        run: make set-version VERSION="${{ needs.prepare.outputs.version }}"
+
+      - name: Build both packages
+        run: make debs
+
+      # verify-payload.sh (inside the audit) owns Depends, signatures (ad-hoc
+      # only, no Apple or developer certificate), layout and the floor.
+      - name: Audit the built packages
+        run: python3 scripts/audit-tweak-debs.py build/pkg/*.deb
+
+      - name: Render release notes
+        run: ./scripts/release-notes.sh "v${{ needs.prepare.outputs.version }}" >build/pkg/release-notes.md
+
+      - name: Regenerate SHA256SUMS from exactly the uploaded files
+        working-directory: build/pkg
+        run: |
+          shasum -a 256 ./*.deb ./*.dSYM.tar.zst | sed 's| \./| |' >SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Job summary
+        working-directory: build/pkg
+        run: |
+          {
+            echo "### Packages ${{ needs.prepare.outputs.version }} (\`${{ needs.prepare.outputs.sha }}\`)"
+            echo
+            echo "| File | Architecture | Depends | Installed-Size |"
+            echo "| --- | --- | --- | --- |"
+            for deb in ./*.deb; do
+              echo "| $(basename "$deb") | $(dpkg-deb -f "$deb" Architecture) | $(dpkg-deb -f "$deb" Depends) | $(dpkg-deb -f "$deb" Installed-Size) |"
+            done
+            echo
+            echo '```'
+            cat SHA256SUMS
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: packages
+          path: |
+            build/pkg/*.deb
+            build/pkg/*.dSYM.tar.zst
+            build/pkg/SHA256SUMS
+            build/pkg/release-notes.md
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [prepare, test, compile]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Guard the tag still resolves to the prepared commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          now="$(gh api "repos/$GH_REPO/commits/${GITHUB_REF_NAME}" --jq .sha)"
+          [ "$now" = "${{ needs.prepare.outputs.sha }}" ] || {
+            echo "tag ${GITHUB_REF_NAME} now names $now, built ${{ needs.prepare.outputs.sha }}; re-run on the moved tag" >&2; exit 1; }
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: packages
+          path: dist
+      - name: Verify checksums and publish (draft)
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sha256sum -c SHA256SUMS
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            # Retry: replace stale assets, keep the draft for the reading review.
+            for asset in $(gh release view "$tag" --json assets --jq '.assets[].name'); do
+              gh release delete-asset "$tag" "$asset" -y || true
+            done
+            gh release edit "$tag" --draft --notes-file release-notes.md
+            gh release upload "$tag" ./*.deb ./*.dSYM.tar.zst SHA256SUMS --clobber
+          else
+            gh release create "$tag" \
+              --draft --verify-tag \
+              --title "$tag" \
+              --notes-file release-notes.md \
+              ./*.deb ./*.dSYM.tar.zst SHA256SUMS
+          fi
+          {
+            echo "### Draft release $tag (\`${{ needs.prepare.outputs.sha }}\`)"
+            echo
+            echo "Read the CI-built assets, then: \`gh release edit $tag --draft=false\`"
+          } >>"$GITHUB_STEP_SUMMARY"
+          echo "Draft release ready. Read the CI-built assets, then: gh release edit $tag --draft=false"

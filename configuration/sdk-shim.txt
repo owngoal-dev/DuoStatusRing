@@ -1,0 +1,11 @@
+# sdk-shim.txt — headers to borrow when the chosen SDK lacks a header for an API
+# the device exports (sdk-header-gap). One path per line, relative to
+# usr/include: a header (libproc.h) or a header directory. build-ios.sh symlinks
+# each MISSING one (skipped if the chosen SDK already has it) from Xcode's
+# iphoneos SDK (macOS only as a last resort) into build/sdk-shim and passes
+# -isystem that one dir. Only headers are borrowed, never libraries. Prove any
+# symbol you shim exists in the SDK's .tbd first, and prefer a header from an
+# SDK of the same era: Xcode 27's xpc headers do not compile against a Theos
+# iPhoneOS16.5.sdk (statically verified: a helper build), which is why the
+# helper declares its XPC surface in src/helper/tw_xpc.h instead. Empty by
+# default.
